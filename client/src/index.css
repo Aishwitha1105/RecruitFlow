@@ -37,28 +37,31 @@ body{
 .role-card p{
   line-height: 1.6;
 }
-.navbar{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 50px;
-  border-bottom:1px solid #e5e5e5;
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 40px;
+    border-bottom: 1px solid #e5e7eb;
 }
-.logo{
-  font-size: 22px;
-  font-weight: bold;
+
+.logo {
+    font-size: 22px;
+    font-weight: bold;
 }
-.nav-links{
-  display: flex;
-  gap:25px;
+
+.nav-links {
+    display: flex;
+    gap: 30px;
 }
-.nav-links a{
-  text-decoration: none;
-  color: #333;
+
+.nav-actions {
+    display: flex;
+    gap: 15px;
 }
-.nav-actions{
-  display: flex;
-  gap:10px;
+
+.navbar a {
+    text-decoration: none;
 }
 .dashboard {
   max-width: 1200px;
