@@ -4,13 +4,37 @@ function RecruiterDashboard(){
   {
     title: "Frontend Developer",
     noofapplicants: 24,
-    status: "active"
-  },
-  {
+    status: "active",
+    applicants: [
+        {
+            name: "Rahul Kumar",
+            skills: "React, JavaScript, Node.js",
+            matchScore: "91%"
+        },
+        {
+            name: "Priya Sharma",
+            skills: "React, HTML, CSS",
+            matchScore: "86%"
+        }
+    ]
+},
+ {
     title: "Backend Developer",
     noofapplicants: 18,
-    status: "closed"
-  }
+    status: "closed",
+    applicants: [
+        {
+            name: "Arjun Reddy",
+            skills: "Node.js, Express, MongoDB",
+            matchScore: "89%"
+        },
+        {
+            name: "Sneha Rao",
+            skills: "Python, Django, PostgreSQL",
+            matchScore: "84%"
+        }
+    ]
+}
 ];
     return(
         <main>
@@ -27,6 +51,7 @@ function RecruiterDashboard(){
                         title={job.title}
                         noofapplicants={job.noofapplicants}
                         status={job.status}
+                        applicants={job.applicants}
                         />
                     ))
                 }

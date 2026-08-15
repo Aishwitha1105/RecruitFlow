@@ -5,8 +5,8 @@ function NavBar(){
          <div className="logo">RecruitFlow AI</div>
          <div className="nav-links">
             <Link to="/">Home</Link>
-            <Link to="/jobs">For Candidates</Link>
-            <a href="#">For Recruiters</a>
+            <Link to="/candidate/dashboard">For Candidates</Link>
+            <a href="recruiter/dashboard">For Recruiters</a>
         </div>
         <div className="nav-actions">
             <Link to="/login">Login</Link>
