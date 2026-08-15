@@ -1,0 +1,121 @@
+*{
+  box-sizing:border-box;
+}
+body{
+  margin:0;
+  font-family:Arial, Helvetica, sans-serif;
+}
+.home{
+  min-height:100vh;
+}
+.hero{
+  text-align:center;
+  padding: 80px 20px;
+}
+.hero h1{
+  font-size: 48px;
+  margin-bottom:20px;
+}
+.hero p{
+  max-width: 600px;
+  margin:0 auto 30px;
+  font-size:18px;
+  line-height: 1.6;
+}
+.roles{
+  display: flex;
+  gap:30px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.role-card{
+  flex:1;
+  padding: 30px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+.role-card p{
+  line-height: 1.6;
+}
+.navbar{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 50px;
+  border-bottom:1px solid #e5e5e5;
+}
+.logo{
+  font-size: 22px;
+  font-weight: bold;
+}
+.nav-links{
+  display: flex;
+  gap:25px;
+}
+.nav-links a{
+  text-decoration: none;
+  color: #333;
+}
+.nav-actions{
+  display: flex;
+  gap:10px;
+}
+.dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.dashboard-header {
+  margin-bottom: 40px;
+}
+
+.dashboard-header h1 {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.dashboard-header p {
+  color: #666;
+  font-size: 18px;
+}
+.jobs-section h2 {
+  margin-bottom: 20px;
+}
+
+.jobs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.job-card {
+  padding: 24px;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: white;
+  transition: 0.2s;
+}
+
+.job-card h2 {
+  margin-bottom: 8px;
+}
+
+.job-card p {
+  color: #666;
+}
+
+.job-card button {
+  margin-top: 20px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.job-card:hover {
+  transform: translateY(-4px);
+}
+@media (max-width: 768px) {
+  .jobs-grid {
+    grid-template-columns: 1fr;
+  }
+}
