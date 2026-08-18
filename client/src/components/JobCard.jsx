@@ -1,23 +1,14 @@
-function JobCard({ title, company, matchScore }) {
-    const score = parseInt(matchScore);
+function JobCard({ title, company, location, jobType, skills }) {
     return (
-        <div className="job-card">
+        <div>
             <h2>{title}</h2>
-            <p>{company}</p>
-            <div className="match-section">
-                <div className="match-header">
-                    <span>Match Score</span>
-                    <span>{matchScore}</span>
-                </div>
-                <div className="progress-bar">
-                    <div
-                        className="progress"
-                        style={{ width: `${score}%` }}
-                    ></div>
-                </div>
-            </div>
-            <Link to="/jobdetails">View Details</Link>
+            <p>Company: {company}</p>
+            <p>Location: {location}</p>
+            <p>Job Type: {jobType}</p>
+            <p>Skills: {skills}</p>
+            <button>View Details</button>
         </div>
     );
 }
+
 export default JobCard;
