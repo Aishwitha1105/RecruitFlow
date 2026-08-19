@@ -4,12 +4,28 @@ function Register(){
   name: "",
   email: "",
   password: "",
-  role: ""
 });
-    function handleSubmit(e){
+    async function handleSubmit(e){
         e.preventDefault();
-        console.log(formData);
+        try{
+        const response=await fetch("/api/register",{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify(formData)
+        });
+        const data=await response.json();
+        console.log(data);
+        if(response.ok){
+            alert("Registration Successful");
+        }else{
+            alert(data.message);
+        }
+        }catch(error){
+ console.log("Registration error:",error);
     }
+}
     return(
         <main>
             <h1>Create Your RecruitFlow Account</h1>
@@ -24,15 +40,6 @@ function Register(){
                 <div>
                 <label>Password</label>
                 <input type="password" value={formData.password} onChange={(e)=>setFormData({...formData,password:e.target.value})}/>
-            </div>
-            <div>
-                <label>Role</label>
-                <select value={formData.role} onChange={(e)=>setFormData({...formData,role:e.target.value})}>
-                    <option value="">Select Role</option>
-                    <option value="candidate">Candidate</option>
-                    <option value="recruiter">Recruiter</option>
-                    </select>
-
             </div>
             <button>Register</button>
             </form>

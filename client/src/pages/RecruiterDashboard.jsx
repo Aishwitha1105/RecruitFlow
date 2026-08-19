@@ -3,7 +3,6 @@ import JobPosts from "../components/JobPosts";
 
 function RecruiterDashboard() {
     const [jobposts, setJobposts] = useState([]);
-
     useEffect(() => {
         async function fetchJobs() {
             try {
