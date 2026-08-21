@@ -1,27 +1,95 @@
-import {Link} from "react-router-dom";
-import { useNavigate } from "react-router-dom";
-function NavBar(){
+import { Link, useNavigate } from "react-router-dom";
+
+function NavBar() {
     const navigate = useNavigate();
 
-function handleLogout() {
-    localStorage.removeItem("user");
-    navigate("/login");
-}
-    return(
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    function handleLogout() {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        navigate("/login");
+    }
+
+    return (
         <nav className="navbar">
-         <div className="logo">RecruitFlow AI</div>
-         <div className="nav-links">
-            <Link to="/">Home</Link>
-            <Link to="/candidate/dashboard">For Candidates</Link>
-            <a href="recruiter/dashboard">For Recruiters</a>
-        </div>
-        <div className="nav-actions">
-            <Link to="/login">Login</Link>
-            <Link to="/register">Register</Link>
-            </div>   
-            <button onClick={handleLogout}>Logout</button>
+
+            <Link to="/" className="logo">
+                RecruitFlow AI
+            </Link>
+
+            <div className="nav-links">
+
+                <Link to="/">
+                    Home
+                </Link>
+
+                {!user && (
+                    <>
+                        <Link to="/candidate/dashboard">
+                            For Candidates
+                        </Link>
+
+                        <Link to="/recruiter/dashboard">
+                            For Recruiters
+                        </Link>
+                    </>
+                )}
+
+                {user?.role === "candidate" && (
+                    <>
+                        <Link to="/candidate/dashboard">
+                            Dashboard
+                        </Link>
+
+                        <Link to="/applications">
+                            My Applications
+                        </Link>
+                    </>
+                )}
+
+                {user?.role === "recruiter" && (
+                    <>
+                        <Link to="/recruiter/dashboard">
+                            Dashboard
+                        </Link>
+
+                        <Link to="/recruiter/applications">
+                            Applicants
+                        </Link>
+
+                        <Link to="/recruiter/create-job">
+                            Create Job
+                        </Link>
+                    </>
+                )}
+
+            </div>
+
+            <div className="nav-actions">
+
+                {!user && (
+                    <>
+                        <Link to="/login">
+                            Login
+                        </Link>
+
+                        <Link to="/register">
+                            Register
+                        </Link>
+                    </>
+                )}
+
+                {user && (
+                    <button onClick={handleLogout}>
+                        Logout
+                    </button>
+                )}
+
+            </div>
+
         </nav>
-        
     );
 }
+
 export default NavBar;

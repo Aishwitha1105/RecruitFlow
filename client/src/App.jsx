@@ -1,5 +1,5 @@
 import {BrowserRouter, Routes, Route} from "react-router-dom";
-import NavBar from './components/NavBar';
+import NavBar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -9,6 +9,10 @@ import RecruiterRegister from "./pages/RecruiterRegister";
 import CreateJob from "./pages/CreateJob";
 import JobDetails from "./pages/JobDetails";
 import ProtectedRoute from "./components/ProtectedRoute";
+import MyApplications from "./pages/MyApplications";
+import RecruiterApplications from "./pages/RecruiterApplications";
+import MySkills from "./pages/MySkills";
+import ResumeUpload from "./pages/ResumeUpload";
 import './App.css'
 
 function App() {
@@ -19,21 +23,65 @@ function App() {
       <Route path="/" element={<Home/>}/>
       <Route path="/login" element={<Login/>}/>
       <Route path="/register" element={<Register/>}/>
-      <Route path="/candidate/dashboard" element={ <ProtectedRoute> <CandidateDashboard /> </ProtectedRoute>  }
+      <Route
+    path="/candidate/dashboard"
+    element={
+        <ProtectedRoute allowedRole="candidate">
+            <CandidateDashboard />
+        </ProtectedRoute>
+    }
 />
+
 <Route
     path="/recruiter/dashboard"
     element={
-        <ProtectedRoute>
+        <ProtectedRoute allowedRole="recruiter">
             <RecruiterDashboard />
         </ProtectedRoute>
     }
 />
-      <Route path="/recruiter/create-job" element={<CreateJob />} />
-      <Route path="/jobdetails" element={<JobDetails/>}/>
+<Route
+    path="/jobs/:id"
+    element={<JobDetails />}
+/>
+<Route
+    path="/applications"
+    element={
+        <ProtectedRoute allowedRole="candidate">
+            <MyApplications />
+        </ProtectedRoute>
+    }
+/>
+
+<Route
+    path="/recruiter/applications"
+    element={
+        <ProtectedRoute allowedRole="recruiter">
+            <RecruiterApplications />
+        </ProtectedRoute>
+    }
+/>
+
+<Route
+    path="/recruiter/create-job"
+    element={
+        <ProtectedRoute allowedRole="recruiter">
+            <CreateJob />
+        </ProtectedRoute>
+    }
+/>
+<Route
+    path="/candidate/skills"
+    element={<MySkills />}
+/>
       <Route path="/recruiter/register" element={<RecruiterRegister />}/>
+      <Route
+    path="/candidate/resume"
+    element={<ResumeUpload />}
+/>
     </Routes>
     </BrowserRouter>
+
   );
 }
 

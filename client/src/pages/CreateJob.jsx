@@ -16,12 +16,13 @@ function CreateJob() {
 
         try {
             const response = await fetch("/api/jobs", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(jobData)
-            });
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("token")}`
+    },
+    body: JSON.stringify(jobData)
+});
 
             const data = await response.json();
 

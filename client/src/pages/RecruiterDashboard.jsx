@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import JobPosts from "../components/JobPosts";
 
 function RecruiterDashboard() {
@@ -38,8 +39,9 @@ function RecruiterDashboard() {
                         status={job.status || "active"}
                     />
                 ))}
-
-                <button>Create Job</button>
+<Link to="/recruiter/create-job">
+    Create Job
+</Link>
             </section>
         </main>
     );

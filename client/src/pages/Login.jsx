@@ -7,6 +7,8 @@ function Login() {
         password: ""
     });
 
+    const [showPassword, setShowPassword] = useState(false);
+
     const navigate = useNavigate();
 
     async function handleSubmit(e) {
@@ -29,13 +31,16 @@ function Login() {
                 alert("Login successful!");
 
                 localStorage.setItem("token", data.token);
-localStorage.setItem("user", JSON.stringify(data.user));
+                localStorage.setItem("user", JSON.stringify(data.user));
 
                 if (data.user.role === "candidate") {
                     navigate("/candidate/dashboard");
+                } else if(data.user.role === "recruiter"){
+                    navigate("/recruiter/dashboard");
                 }
-
-            } else {
+ 
+            } 
+            else {
                 alert(data.message);
             }
 
@@ -68,16 +73,25 @@ localStorage.setItem("user", JSON.stringify(data.user));
                 <div>
                     <label>Password</label>
 
-                    <input
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) =>
-                            setFormData({
-                                ...formData,
-                                password: e.target.value
-                            })
-                        }
-                    />
+                    <div>
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            value={formData.password}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    password: e.target.value
+                                })
+                            }
+                        />
+
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                        >
+                            {showPassword ? "👁️" : "👁️"}
+                        </button>
+                    </div>
                 </div>
 
                 <button type="submit">

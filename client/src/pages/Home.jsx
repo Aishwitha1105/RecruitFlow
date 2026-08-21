@@ -1,29 +1,124 @@
-function Home(){
-    return(
-        <main className="home">
+import { Link } from "react-router-dom";
+
+function Home() {
+    return (
+        <main className="home-page">
+
             <section className="hero">
-            <h1>AI-Powered Recruitment & Hiring</h1>
-            <p>Find the right candidates using explainable AI-based
-        job and candidate matching.</p>
-        <button>Get Started</button>
-        </section>
-        <section className="roles">
-            <div className="role-card">
-            <h2>For Candidates</h2>
-            <h3>Find Opportunities That Match Your Skills</h3>
-            <p>Upload your resume and discover how well your skills and experience match available job opportunities. 
-                Get clear insights into your strengths and skill gaps.</p>
-                <button>Explore Jobs</button>
+                <div className="hero-content">
+                    <span className="hero-badge">
+                        AI-powered hiring platform
+                    </span>
+
+                    <h1>
+                        Find the right job.
+                        <br />
+                        Hire the right talent.
+                    </h1>
+
+                    <p>
+                        RecruitFlow connects candidates with opportunities
+                        and helps recruiters discover qualified talent faster.
+                    </p>
+
+                    <div className="hero-actions">
+                        <Link
+                            to="/register"
+                            className="primary-btn"
+                        >
+                            Find Jobs
+                        </Link>
+
+                        <Link
+                            to="/recruiter/register"
+                            className="secondary-btn"
+                        >
+                            Hire Talent
+                        </Link>
+                    </div>
                 </div>
-        <div className="role-card">
-            <h2>For Recruiters</h2>
-            <h3>Find the Right Candidates Faster</h3>
-            <p>Analyze job requirements, compare candidates based on relevant skills and experience, 
-                and understand why a candidate matches your role.</p>
-                <button>Post a Job</button>
+            </section>
+
+            <section className="features-section">
+                <div className="section-heading">
+                    <span>WHY RECRUITFLOW</span>
+
+                    <h2>
+                        Everything you need to make hiring easier.
+                    </h2>
                 </div>
-        </section>
+
+                <div className="features-grid">
+
+                    <div className="feature-card">
+                        <div className="feature-icon">
+                            🔎
+                        </div>
+
+                        <h3>
+                            Smart Job Discovery
+                        </h3>
+
+                        <p>
+                            Search opportunities based on your skills,
+                            experience and career interests.
+                        </p>
+                    </div>
+
+                    <div className="feature-card">
+                        <div className="feature-icon">
+                            ⚡
+                        </div>
+
+                        <h3>
+                            Faster Hiring
+                        </h3>
+
+                        <p>
+                            Recruiters can create jobs and manage
+                            candidates from one simple dashboard.
+                        </p>
+                    </div>
+
+                    <div className="feature-card">
+                        <div className="feature-icon">
+                            🎯
+                        </div>
+
+                        <h3>
+                            Better Matches
+                        </h3>
+
+                        <p>
+                            Connect candidates with opportunities that
+                            align with their skills and experience.
+                        </p>
+                    </div>
+
+                </div>
+            </section>
+
+            <section className="cta-section">
+
+                <h2>
+                    Ready to take the next step?
+                </h2>
+
+                <p>
+                    Create your RecruitFlow account and get started.
+                </p>
+
+                <Link
+                    to="/register"
+                    className="primary-btn"
+                >
+                    Get Started
+                </Link>
+
+            </section>
+
         </main>
     );
 }
+
 export default Home;
