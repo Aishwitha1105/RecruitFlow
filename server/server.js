@@ -1,17 +1,115 @@
-require("dotenv").config(); 
-const express=require('express');
+require("dotenv").config();
+
+const express = require("express");
+const { GoogleGenAI } = require("@google/genai");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { PDFParse } = require("pdf-parse");
-const connectDB=require('./config/db');
-const Job=require('./models/Job');
+
+const connectDB = require("./config/db");
+const Job = require("./models/Job");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const User=require('./models/User');  
-const Recruiter=require('./models/Recruiter'); 
+const User = require("./models/User");
+const Recruiter = require("./models/Recruiter");
 const Application = require("./models/Application");
 const protect = require("./middleware/authMiddleware");
+
+// ==================================================
+// SKILL NORMALIZATION
+// ==================================================
+
+function normalizeSkill(skill) {
+    if (!skill) return "";
+
+    let normalized = skill
+        .toLowerCase()
+        .trim();
+
+    // Remove common prefixes
+    normalized = normalized
+        .replace(/^microsoft\s+/, "")
+        .replace(/^ms\s+/, "");
+
+    // Normalize punctuation
+    normalized = normalized
+        .replace(/[._]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    // Common skill aliases / spelling corrections
+    const aliases = {
+        "web developement": "web development",
+        "webdevelopment": "web development",
+
+        "frontend development": "frontend development",
+        "front end development": "frontend development",
+
+        "javascript development": "javascript",
+
+        "node js": "node.js",
+        "nodejs": "node.js",
+
+        "react js": "react",
+        "reactjs": "react",
+
+        "vue js": "vue",
+        "vuejs": "vue",
+
+        "angular js": "angular",
+        "angularjs": "angular",
+
+        "html5": "html",
+        "css3": "css",
+
+        "structured query language": "sql",
+
+        "data analysis": "data analysis",
+        "data analytics": "data analytics",
+        "microsoft excel": "excel",
+    "microsoft access": "access",
+    "microsoft powerpoint": "powerpoint",
+
+    "react.js": "react",
+    "reactjs": "react",
+
+    "node js": "node.js",
+    "nodejs": "node.js",
+
+    "web developement": "web development",
+    "webdevelopment": "web development",
+
+    "sql database": "sql"
+    };
+
+    return aliases[normalized] || normalized;
+}
+
+// ==================================================
+// GEMINI AI
+// ==================================================
+
+const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY
+});
+
+// ==================================================
+// APP
+// ==================================================
+
+const app = express();
+
+app.use(express.json());
+
+connectDB();
+
+const PORT = 5000;
+
+// ==================================================
+// SKILL VOCABULARY
+// ==================================================
+
 const skillKeywords = [
     "JavaScript",
     "TypeScript",
@@ -43,10 +141,11 @@ const skillKeywords = [
     "Machine Learning",
     "Artificial Intelligence"
 ];
-const app=express();
-app.use(express.json());
-connectDB();
-const PORT=5000;
+
+// ==================================================
+// MULTER / RESUME UPLOAD
+// ==================================================
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, "uploads/");
@@ -60,9 +159,19 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage });
+const upload = multer({
+    storage
+});
+
+// ==================================================
+// JOB ROUTES
+// ==================================================
+
+// CREATE JOB
+
 app.post("/api/jobs", protect, async (req, res) => {
     try {
+
         if (req.user.role !== "recruiter") {
             return res.status(403).json({
                 message: "Recruiter access required"
@@ -74,6 +183,7 @@ app.post("/api/jobs", protect, async (req, res) => {
         res.status(201).json(job);
 
     } catch (error) {
+
         console.log("Create job error:", error);
 
         res.status(500).json({
@@ -81,17 +191,31 @@ app.post("/api/jobs", protect, async (req, res) => {
         });
     }
 });
-app.get("/api/jobs",async (req,res)=>{
-    try{
-        const jobs=await Job.find();
+
+// GET ALL JOBS
+
+app.get("/api/jobs", async (req, res) => {
+    try {
+
+        const jobs = await Job.find();
+
         res.json(jobs);
-    }catch(error){
-        res.status(500).json({message:"Failed to fetch jobs"});
+
+    } catch (error) {
+
+        console.log("Fetch jobs error:", error);
+
+        res.status(500).json({
+            message: "Failed to fetch jobs"
+        });
     }
 });
 
+// GET SINGLE JOB
+
 app.get("/api/jobs/:id", async (req, res) => {
     try {
+
         const job = await Job.findById(req.params.id);
 
         if (!job) {
@@ -103,6 +227,7 @@ app.get("/api/jobs/:id", async (req, res) => {
         res.json(job);
 
     } catch (error) {
+
         console.log("Fetch job error:", error);
 
         res.status(500).json({
@@ -111,61 +236,93 @@ app.get("/api/jobs/:id", async (req, res) => {
     }
 });
 
-app.get('/api/test',(req,res)=>{
-res.json("RecruitFlow is working");
+// ==================================================
+// TEST ROUTE
+// ==================================================
+
+app.get("/api/test", (req, res) => {
+
+    res.json("RecruitFlow is working");
+
 });
 
-app.post("/api/register",async (req,res)=>{
-try{
-    const{name,email,password,role}=req.body;
+// ==================================================
+// REGISTER
+// ==================================================
 
-    const existingUser=await User.findOne({email});
+app.post("/api/register", async (req, res) => {
+    try {
 
-    if(existingUser){
-        return res.status(400).json({
-            message:"User already exists"
-        });
-    }
+        const {
+            name,
+            email,
+            password,
+            role
+        } = req.body;
 
-    if(!role || !["candidate","recruiter"].includes(role)){
-        return res.status(400).json({
-            message:"Please select a valid role"
-        });
-    }
+        const existingUser =
+            await User.findOne({ email });
 
-    const hashedPassword=await bcrypt.hash(password,10);
-
-    const user=await User.create({
-        name,
-        email,
-        password:hashedPassword,
-        role
-    });
-
-    res.status(201).json({
-        message:"User registered successfully",
-        user:{
-            id:user._id,
-            name:user.name,
-            email:user.email,
-            role:user.role
+        if (existingUser) {
+            return res.status(400).json({
+                message: "User already exists"
+            });
         }
-    });
 
-}catch(error){
-    console.log(error);
+        if (
+            !role ||
+            !["candidate", "recruiter"].includes(role)
+        ) {
+            return res.status(400).json({
+                message: "Please select a valid role"
+            });
+        }
 
-    res.status(500).json({
-        message:"Registration failed"
-    });
-}
+        const hashedPassword =
+            await bcrypt.hash(password, 10);
+
+        const user = await User.create({
+            name,
+            email,
+            password: hashedPassword,
+            role
+        });
+
+        res.status(201).json({
+            message: "User registered successfully",
+
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        res.status(500).json({
+            message: "Registration failed"
+        });
+    }
 });
+
+// ==================================================
+// LOGIN
+// ==================================================
 
 app.post("/api/login", async (req, res) => {
     try {
-        const { email, password } = req.body;
 
-        const user = await User.findOne({ email });
+        const {
+            email,
+            password
+        } = req.body;
+
+        const user =
+            await User.findOne({ email });
 
         if (!user) {
             return res.status(401).json({
@@ -173,10 +330,11 @@ app.post("/api/login", async (req, res) => {
             });
         }
 
-        const passwordMatch = await bcrypt.compare(
-            password,
-            user.password
-        );
+        const passwordMatch =
+            await bcrypt.compare(
+                password,
+                user.password
+            );
 
         if (!passwordMatch) {
             return res.status(401).json({
@@ -189,15 +347,19 @@ app.post("/api/login", async (req, res) => {
                 userId: user._id,
                 role: user.role
             },
+
             process.env.JWT_SECRET,
+
             {
                 expiresIn: "1h"
             }
-        );  
+        );
 
         res.json({
             message: "Login successful",
+
             token,
+
             user: {
                 id: user._id,
                 name: user.name,
@@ -207,6 +369,7 @@ app.post("/api/login", async (req, res) => {
         });
 
     } catch (error) {
+
         console.log(error);
 
         res.status(500).json({
@@ -215,8 +378,13 @@ app.post("/api/login", async (req, res) => {
     }
 });
 
+// ==================================================
+// RECRUITER REGISTRATION
+// ==================================================
+
 app.post("/api/recruiters", async (req, res) => {
     try {
+
         const {
             recruiterName,
             companyName,
@@ -225,399 +393,1397 @@ app.post("/api/recruiters", async (req, res) => {
             companyDescription
         } = req.body;
 
-        const existingRecruiter = await Recruiter.findOne({
-            companyEmail
-        });
+        const existingRecruiter =
+            await Recruiter.findOne({
+                companyEmail
+            });
 
         if (existingRecruiter) {
             return res.status(400).json({
-                message: "A recruiter account with this company email already exists"
+                message:
+                    "A recruiter account with this company email already exists"
             });
         }
 
-        const recruiter = await Recruiter.create({
-            recruiterName,
-            companyName,
-            companyEmail,
-            companyWebsite,
-            companyDescription
-        });
+        const recruiter =
+            await Recruiter.create({
+                recruiterName,
+                companyName,
+                companyEmail,
+                companyWebsite,
+                companyDescription
+            });
 
         res.status(201).json({
-            message: "Recruiter registration submitted for verification",
+            message:
+                "Recruiter registration submitted for verification",
+
             recruiter
         });
 
     } catch (error) {
+
         console.log(error);
 
         res.status(500).json({
-            message: "Recruiter registration failed"
+            message:
+                "Recruiter registration failed"
         });
     }
 });
 
-app.post("/api/applications", protect, async (req, res) => {
-    try {
-        const { jobId } = req.body;
+// ==================================================
+// APPLICATIONS
+// ==================================================
 
-        if (!jobId) {
-            return res.status(400).json({
-                message: "Job is required"
+// APPLY FOR JOB
+
+app.post(
+    "/api/applications",
+    protect,
+    async (req, res) => {
+
+        try {
+
+            const { jobId } = req.body;
+
+            if (!jobId) {
+                return res.status(400).json({
+                    message: "Job is required"
+                });
+            }
+
+            if (req.user.role !== "candidate") {
+                return res.status(403).json({
+                    message:
+                        "Only candidates can apply for jobs"
+                });
+            }
+
+            const candidateId =
+                req.user.userId;
+
+            const existingApplication =
+                await Application.findOne({
+                    candidate: candidateId,
+                    job: jobId
+                });
+
+            if (existingApplication) {
+                return res.status(400).json({
+                    message:
+                        "You have already applied for this job"
+                });
+            }
+
+            const application =
+                await Application.create({
+                    candidate: candidateId,
+                    job: jobId
+                });
+
+            res.status(201).json({
+                message:
+                    "Application submitted successfully",
+
+                application
             });
-        }
 
-        if (req.user.role !== "candidate") {
-            return res.status(403).json({
-                message: "Only candidates can apply for jobs"
-            });
-        }
+        } catch (error) {
 
-        const candidateId = req.user.userId;
-
-        const existingApplication =
-            await Application.findOne({
-                candidate: candidateId,
-                job: jobId
-            });
-
-        if (existingApplication) {
-            return res.status(400).json({
-                message: "You have already applied for this job"
-            });
-        }
-
-        const application =
-            await Application.create({
-                candidate: candidateId,
-                job: jobId
-            });
-
-        res.status(201).json({
-            message: "Application submitted successfully",
-            application
-        });
-
-    } catch (error) {
-        console.log("Application error:", error);
-
-        res.status(500).json({
-            message: "Failed to submit application"
-        });
-    }
-});
-
-app.get("/api/applications/:candidateId", protect, async (req, res) => {
-    try {
-
-        if (req.user.role !== "candidate") {
-            return res.status(403).json({
-                message: "Candidate access required"
-            });
-        }
-
-        if (req.user.userId.toString() !== req.params.candidateId) {
-            return res.status(403).json({
-                message: "Access denied"
-            });
-        }
-
-        const applications = await Application.find({
-            candidate: req.params.candidateId
-        })
-        .populate("job");
-
-        res.json(applications);
-
-    } catch (error) {
-        console.log("Fetch applications error:", error);
-
-        res.status(500).json({
-            message: "Failed to fetch applications"
-        });
-    }
-});
-
-app.get("/api/my-applications", protect, async (req, res) => {
-    try {
-
-        if (req.user.role !== "candidate") {
-            return res.status(403).json({
-                message: "Candidate access required"
-            });
-        }
-
-        const applications = await Application.find({
-            candidate: req.user.userId
-        })
-        .populate("job");
-
-        res.json(applications);
-
-    } catch (error) {
-        console.log("Fetch applications error:", error);
-
-        res.status(500).json({
-            message: "Failed to fetch applications"
-        });
-    }
-});
-app.put("/api/applications/:id/status", protect, async (req, res) => {
-    try {
-
-        if (req.user.role !== "recruiter") {
-            return res.status(403).json({
-                message: "Recruiter access required"
-            });
-        }
-
-        const { status } = req.body;
-
-        const validStatuses = [
-            "applied",
-            "under-review",
-            "shortlisted",
-            "rejected"
-        ];
-
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({
-                message: "Invalid application status"
-            });
-        }
-
-        const application = await Application.findByIdAndUpdate(
-            req.params.id,
-            { status },
-            { new: true }
-        )
-            .populate("candidate", "name email")
-            .populate("job", "title company location");
-
-        if (!application) {
-            return res.status(404).json({
-                message: "Application not found"
-            });
-        }
-
-        res.json({
-            message: "Application status updated",
-            application
-        });
-
-    } catch (error) {
-        console.log("Update application error:", error);
-
-        res.status(500).json({
-            message: "Failed to update application status"
-        });
-    }
-});
-app.put("/api/users/:id/skills", async (req, res) => {
-    try {
-        const { skills } = req.body;
-
-        if (!skills || !Array.isArray(skills)) {
-            return res.status(400).json({
-                message: "Skills must be an array"
-            });
-        }
-
-        const user = await User.findByIdAndUpdate(
-            req.params.id,
-            { skills },
-            { new: true }
-        );
-
-        if (!user) {
-            return res.status(404).json({
-                message: "User not found"
-            });
-        }
-
-        res.json({
-            message: "Skills updated successfully",
-            user
-        });
-
-    } catch (error) {
-        console.log("Skills update error:", error);
-
-        res.status(500).json({
-            message: "Failed to update skills"
-        });
-    }
-});
-app.get("/api/jobs/matches/:candidateId", async (req, res) => {
-    try {
-        const candidate = await User.findById(req.params.candidateId);
-
-        if (!candidate) {
-            return res.status(404).json({
-                message: "Candidate not found"
-            });
-        }
-
-        const jobs = await Job.find();
-
-        const candidateSkills = candidate.skills.map(
-            (skill) => skill.toLowerCase().trim()
-        );
-
-        const matchedJobs = jobs.map((job) => {
-            const jobSkills = job.skills
-                .split(",")
-                .map((skill) => skill.toLowerCase().trim())
-                .filter(Boolean);
-
-            const matchedSkills = jobSkills.filter((skill) =>
-                candidateSkills.includes(skill)
+            console.log(
+                "Application error:",
+                error
             );
 
-            const missingSkills = jobSkills.filter((skill) =>
-                !candidateSkills.includes(skill)
+            res.status(500).json({
+                message:
+                    "Failed to submit application"
+            });
+        }
+    }
+);
+
+// GET APPLICATIONS FOR CANDIDATE
+
+app.get(
+    "/api/applications/:candidateId",
+    protect,
+    async (req, res) => {
+
+        try {
+
+            if (req.user.role !== "candidate") {
+                return res.status(403).json({
+                    message:
+                        "Candidate access required"
+                });
+            }
+
+            if (
+                req.user.userId.toString() !==
+                req.params.candidateId
+            ) {
+                return res.status(403).json({
+                    message:
+                        "Access denied"
+                });
+            }
+
+            const applications =
+                await Application.find({
+                    candidate:
+                        req.params.candidateId
+                })
+                    .populate("job");
+
+            res.json(applications);
+
+        } catch (error) {
+
+            console.log(
+                "Fetch applications error:",
+                error
             );
 
-            const matchPercentage =
-                jobSkills.length > 0
-                    ? Math.round(
-                        (matchedSkills.length / jobSkills.length) * 100
+            res.status(500).json({
+                message:
+                    "Failed to fetch applications"
+            });
+        }
+    }
+);
+
+// GET MY APPLICATIONS
+
+app.get(
+    "/api/my-applications",
+    protect,
+    async (req, res) => {
+
+        try {
+
+            if (req.user.role !== "candidate") {
+                return res.status(403).json({
+                    message:
+                        "Candidate access required"
+                });
+            }
+
+            const applications =
+                await Application.find({
+                    candidate:
+                        req.user.userId
+                })
+                    .populate("job");
+
+            res.json(applications);
+
+        } catch (error) {
+
+            console.log(
+                "Fetch applications error:",
+                error
+            );
+
+            res.status(500).json({
+                message:
+                    "Failed to fetch applications"
+            });
+        }
+    }
+);
+
+// UPDATE APPLICATION STATUS
+
+app.put(
+    "/api/applications/:id/status",
+    protect,
+    async (req, res) => {
+
+        try {
+
+            if (req.user.role !== "recruiter") {
+                return res.status(403).json({
+                    message:
+                        "Recruiter access required"
+                });
+            }
+
+            const { status } = req.body;
+
+            const validStatuses = [
+                "applied",
+                "under-review",
+                "shortlisted",
+                "rejected"
+            ];
+
+            if (!validStatuses.includes(status)) {
+                return res.status(400).json({
+                    message:
+                        "Invalid application status"
+                });
+            }
+
+            const application =
+                await Application.findByIdAndUpdate(
+                    req.params.id,
+                    { status },
+                    {
+                        returnDocument: "after"
+                    }
+                )
+                    .populate(
+                        "candidate",
+                        "name email"
                     )
-                    : 0;
+                    .populate(
+                        "job",
+                        "title company location"
+                    );
 
-            return {
-                job,
-                matchPercentage,
-                matchedSkills,
-                missingSkills
-            };
-        });
+            if (!application) {
+                return res.status(404).json({
+                    message:
+                        "Application not found"
+                });
+            }
 
-        matchedJobs.sort(
-            (a, b) => b.matchPercentage - a.matchPercentage
-        );
+            res.json({
+                message:
+                    "Application status updated",
 
-        res.json(matchedJobs);
+                application
+            });
 
-    } catch (error) {
-        console.log("Job matching error:", error);
+        } catch (error) {
 
-        res.status(500).json({
-            message: "Failed to calculate job matches"
-        });
+            console.log(
+                "Update application error:",
+                error
+            );
+
+            res.status(500).json({
+                message:
+                    "Failed to update application status"
+            });
+        }
     }
-});
+);
+
+// ==================================================
+// MANUAL SKILLS UPDATE
+// ==================================================
+
+app.put(
+    "/api/users/:id/skills",
+    async (req, res) => {
+
+        try {
+
+            const { skills } = req.body;
+
+            if (
+                !skills ||
+                !Array.isArray(skills)
+            ) {
+                return res.status(400).json({
+                    message:
+                        "Skills must be an array"
+                });
+            }
+
+            const normalizedSkills = [
+                ...new Set(
+                    skills
+                        .filter(
+                            skill =>
+                                typeof skill === "string"
+                        )
+                        .map(normalizeSkill)
+                        .filter(Boolean)
+                )
+            ];
+
+            const user =
+                await User.findByIdAndUpdate(
+                    req.params.id,
+                    {
+                        skills:
+                            normalizedSkills
+                    },
+                    {
+                        returnDocument: "after"
+                    }
+                );
+
+            if (!user) {
+                return res.status(404).json({
+                    message:
+                        "User not found"
+                });
+            }
+
+            res.json({
+                message:
+                    "Skills updated successfully",
+
+                user
+            });
+
+        } catch (error) {
+
+            console.log(
+                "Skills update error:",
+                error
+            );
+
+            res.status(500).json({
+                message:
+                    "Failed to update skills"
+            });
+        }
+    }
+);
+
+// ==================================================
+// GET USER PROFILE
+// ==================================================
+
+app.get(
+    "/api/users/:id",
+    async (req, res) => {
+
+        try {
+
+            const user =
+                await User.findById(
+                    req.params.id
+                )
+                    .select("-password");
+
+            if (!user) {
+                return res.status(404).json({
+                    message:
+                        "User not found"
+                });
+            }
+
+            res.json(user);
+
+        } catch (error) {
+
+            console.log(
+                "Profile error:",
+                error
+            );
+
+            res.status(500).json({
+                message:
+                    "Failed to fetch profile"
+            });
+        }
+    }
+);
+
+// ==================================================
+// AI RESUME ANALYSIS
+// ==================================================
+
 app.post(
     "/api/users/:id/resume",
     upload.single("resume"),
     async (req, res) => {
+
         try {
+
+            // --------------------------------------------------
+            // CHECK FILE
+            // --------------------------------------------------
+
             if (!req.file) {
                 return res.status(400).json({
-                    message: "Please upload a resume"
+                    message:
+                        "Please upload a resume"
                 });
             }
+
+            // --------------------------------------------------
+            // CHECK USER
+            // --------------------------------------------------
+
+            const user =
+                await User.findById(
+                    req.params.id
+                );
+
+            if (!user) {
+                return res.status(404).json({
+                    message:
+                        "User not found"
+                });
+            }
+
+            // --------------------------------------------------
+            // EXTRACT PDF TEXT
+            // --------------------------------------------------
 
             const parser = new PDFParse({
                 url: req.file.path
             });
 
-            const result = await parser.getText();
+            const result =
+                await parser.getText();
 
             await parser.destroy();
 
-            const extractedText = result.text;
+            const extractedText =
+                result.text;
 
-            console.log("Extracted resume text:");
-            console.log(extractedText);
+            console.log(
+                "Extracted resume text:"
+            );
+
+            console.log(
+                extractedText
+            );
+
+            // ==================================================
+            // EXISTING SKILL EXTRACTION
+            // ==================================================
 
             const extractedSkills = [];
 
-for (const skill of skillKeywords) {
-    const escapedSkill = skill.replace(
-        /[.*+?^${}()|[\]\\]/g,
-        "\\$&"
-    );
+            for (const skill of skillKeywords) {
 
-    const regex = new RegExp(
-        `\\b${escapedSkill}\\b`,
-        "i"
-    );
+                const escapedSkill =
+                    skill.replace(
+                        /[.*+?^${}()|[\]\\]/g,
+                        "\\$&"
+                    );
 
-    if (regex.test(extractedText)) {
-        extractedSkills.push(skill);
-    }
+                const regex =
+                    new RegExp(
+                        `\\b${escapedSkill}\\b`,
+                        "i"
+                    );
+
+                if (
+                    regex.test(
+                        extractedText
+                    )
+                ) {
+
+                    extractedSkills.push(
+                        skill
+                    );
+                }
+            }
+
+            // --------------------------------------------------
+            // REMOVE DUPLICATE / NESTED SKILLS
+            // --------------------------------------------------
+
+            const uniqueSkills =
+                extractedSkills.filter(
+                    (skill) => {
+
+                        if (
+                            skill === "Excel"
+                        ) {
+                            return !extractedSkills.includes(
+                                "Microsoft Excel"
+                            );
+                        }
+
+                        if (
+                            skill === "ReactJS"
+                        ) {
+                            return !extractedSkills.includes(
+                                "React"
+                            );
+                        }
+
+                        return true;
+                    }
+                );
+
+            console.log(
+                "Existing extracted skills:",
+                uniqueSkills
+            );
+
+            // ==================================================
+            // GEMINI AI RESUME ANALYSIS
+            // ==================================================
+
+            let aiSkills = [];
+
+            try {
+
+                // --------------------------------------------------
+                // REMOVE CONTACT INFORMATION
+                // --------------------------------------------------
+
+                const sanitizedText =
+                    extractedText
+
+                        .replace(
+                            /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
+                            "[EMAIL REMOVED]"
+                        )
+
+                        .replace(
+                            /https?:\/\/\S+|www\.\S+/gi,
+                            "[URL REMOVED]"
+                        )
+
+                        .replace(
+                            /(\+?\d[\d\s().-]{7,}\d)/g,
+                            "[PHONE REMOVED]"
+                        );
+
+                // --------------------------------------------------
+                // SEND RESUME TO GEMINI
+                // --------------------------------------------------
+
+                const response =
+                    await ai.models.generateContent({
+
+                        model:
+                            "gemini-3.5-flash-lite",
+
+                        contents: `
+
+You are an AI resume skill extraction engine for a recruitment platform.
+
+Your task is to extract ONLY professional skills from the resume below.
+
+A skill is a specific ability, technology, tool, methodology,
+or professional competency that could reasonably be required
+in a job description.
+
+INCLUDE:
+
+- Programming languages
+- Frameworks and libraries
+- Databases and query languages
+- Software and technical tools
+- Data and analytics skills
+- Business skills
+- IT skills
+- Project management skills
+- Communication and leadership skills
+- Professional competencies
+- Industry-relevant technical skills
+
+EXAMPLES OF VALID SKILLS:
+
+JavaScript
+Python
+Java
+React
+Node.js
+SQL
+MongoDB
+Excel
+Power BI
+Data Analysis
+Machine Learning
+Project Management
+Business Analysis
+Troubleshooting
+Leadership
+Communication
+
+DO NOT INCLUDE:
+
+- Person names
+- Company names
+- University names
+- Locations
+- Addresses
+- Phone numbers
+- Email addresses
+- URLs
+- Dates
+- Years
+- Degrees
+- GPA
+- Job titles
+- Job positions
+- Coursework
+- Resume section names
+- Generic words such as "work", "experience",
+  "responsibility", "team", or "career"
+
+LANGUAGES:
+
+Do not include spoken languages such as Spanish,
+French, etc. unless the resume clearly presents
+language proficiency as a professional/job skill.
+
+OPERATING SYSTEMS:
+
+Do not include Windows, macOS, OS X, or similar
+operating systems unless they represent a meaningful
+technical requirement.
+
+CERTIFICATIONS:
+
+Do not treat the certification name itself as a skill
+unless it represents a genuine professional capability.
+
+NORMALIZATION RULES:
+
+1. Avoid duplicate skills.
+
+2. Treat equivalent names as the same skill.
+
+Examples:
+
+"Microsoft Excel" → "Excel"
+"Microsoft PowerPoint" → "PowerPoint"
+"Microsoft Access" → "Access"
+"SQL Database" → "SQL"
+
+3. Use the most commonly recognized professional name.
+
+4. Keep framework and library names specific.
+
+Examples:
+
+"React.js" → "React"
+"ReactJS" → "React"
+"Node JS" → "Node.js"
+
+5. Do not combine unrelated skills into one skill.
+
+For example:
+
+"Python, Java, SQL"
+
+should become separate skills:
+
+"Python"
+"Java"
+"SQL"
+
+6. Do not infer skills that are not reasonably supported
+by the resume.
+
+7. A skill should only be included if the resume provides
+evidence for it.
+
+8. Prefer concise skill names.
+
+9. Remove duplicates caused by capitalization or wording.
+
+10. Return ONLY the JSON object described below.
+
+OUTPUT FORMAT:
+
+Return ONLY a JSON object with a "skills" property.
+
+Example:
+
+{
+    "skills": [
+        "SQL",
+        "Excel",
+        "Data Analysis",
+        "SAS"
+    ]
 }
 
-// Remove duplicate/nested skills
-const uniqueSkills = extractedSkills.filter(
-    (skill) => {
-        if (skill === "Excel") {
-            return !extractedSkills.includes(
-                "Microsoft Excel"
+Do NOT return markdown.
+Do NOT return explanations.
+Do NOT include any properties other than "skills".
+
+Resume:
+
+${sanitizedText}
+
+                        `,
+
+                        config: {
+
+                            responseMimeType:
+                                "application/json",
+
+                            responseSchema: {
+
+                                type:
+                                    "OBJECT",
+
+                                properties: {
+
+                                    skills: {
+
+                                        type:
+                                            "ARRAY",
+
+                                        items: {
+
+                                            type:
+                                                "STRING"
+                                        }
+                                    }
+                                },
+
+                                required: [
+                                    "skills"
+                                ]
+                            }
+                        }
+                    });
+
+                // --------------------------------------------------
+                // PARSE AI RESPONSE
+                // --------------------------------------------------
+
+                const parsedAI =
+                    JSON.parse(
+                        response.text
+                    );
+
+                const rawAISkills =
+                    Array.isArray(parsedAI)
+                        ? parsedAI
+                        : Array.isArray(parsedAI.skills)
+                            ? parsedAI.skills
+                            : [];
+
+                console.log(
+                    "Raw Gemini response:",
+                    parsedAI
+                );
+
+                console.log(
+                    "AI skills:",
+                    rawAISkills
+                );
+
+                // --------------------------------------------------
+                // NORMALIZE AI SKILLS
+                // --------------------------------------------------
+
+                aiSkills = [
+                    ...new Set(
+                        rawAISkills
+                            .filter(
+                                skill =>
+                                    typeof skill ===
+                                    "string"
+                            )
+                            .map(
+                                normalizeSkill
+                            )
+                            .filter(Boolean)
+                    )
+                ];
+
+                console.log(
+                    "Normalized AI skills:",
+                    aiSkills
+                );
+
+            } catch (error) {
+
+                console.log(
+                    "AI resume analysis failed:",
+                    error.message
+                );
+
+                console.log(
+                    "Using existing skill extraction as fallback."
+                );
+
+                aiSkills = [];
+            }
+
+            // ==================================================
+            // COMBINE AI + EXISTING SKILLS
+            // ==================================================
+
+            const combinedSkills = [
+                ...uniqueSkills,
+                ...aiSkills
+            ];
+
+            // --------------------------------------------------
+            // NORMALIZE + REMOVE DUPLICATES
+            // --------------------------------------------------
+
+            const finalSkills = [
+                ...new Set(
+                    combinedSkills
+                        .filter(
+                            skill =>
+                                typeof skill ===
+                                "string"
+                        )
+                        .map(
+                            normalizeSkill
+                        )
+                        .filter(Boolean)
+                )
+            ];
+
+            console.log(
+                "Final resume skills:",
+                finalSkills
             );
-        }
 
-        return true;
-    }
-);
+            // ==================================================
+            // SAVE SKILLS TO USER
+            // ==================================================
 
-console.log(
-    "Extracted skills:",
-    uniqueSkills
-);
+            const updatedUser =
+                await User.findByIdAndUpdate(
+                    req.params.id,
+                    {
+                        skills:
+                            finalSkills
+                    },
+                    {
+                        returnDocument:
+                            "after"
+                    }
+                )
+                    .select("-password");
 
-            const user = await User.findByIdAndUpdate(
-                req.params.id,
-                {
-                    skills: uniqueSkills
-                },
-                {
-                    new: true
-                }
-            );
-
-            if (!user) {
+            if (!updatedUser) {
                 return res.status(404).json({
-                    message: "User not found"
+                    message:
+                        "User not found"
                 });
             }
 
-            res.json({
-                message: "Resume uploaded and skills extracted successfully",
-                skills: user.skills
+            // ==================================================
+            // RESPONSE
+            // ==================================================
+
+            res.status(200).json({
+
+                message:
+                    "Resume analyzed successfully",
+
+                skills:
+                    finalSkills,
+
+                skillCount:
+                    finalSkills.length,
+
+                user:
+                    updatedUser
             });
 
         } catch (error) {
-            console.log("Resume parsing error:", error);
+
+            console.log(
+                "Resume upload error:",
+                error
+            );
 
             res.status(500).json({
-                message: "Failed to parse resume"
+                message:
+                    "Failed to analyze resume"
             });
         }
     }
 );
-app.get("/api/users/:id", async (req, res) => {
-    try {
-        const user = await User.findById(req.params.id)
-            .select("-password");
+// ==================================================
+// AI SKILL MATCHING
+// ==================================================
 
-        if (!user) {
-            return res.status(404).json({
-                message: "User not found"
-            });
+async function findAISkillMatches(candidateSkills, jobSkills) {
+    try {
+        if (!candidateSkills.length || !jobSkills.length) {
+            return [];
         }
 
-        res.json(user);
+        const prompt = `
+You are a careful AI recruitment skill-matching assistant.
+
+Your task is to determine whether a candidate skill matches a required job skill.
+
+CANDIDATE SKILLS:
+${JSON.stringify(candidateSkills)}
+
+JOB REQUIRED SKILLS:
+${JSON.stringify(jobSkills)}
+
+MATCHING RULES:
+
+1. Match exact skills.
+2. Match common naming variations.
+3. Match common abbreviations.
+4. Match spelling mistakes and obvious typos.
+5. Match equivalent names for the same technology/tool.
+6. Match a specific skill to a broader skill ONLY when the relationship is clear.
+7. Do NOT match unrelated technologies.
+8. Do NOT assume that similar-looking words mean the same thing.
+9. Do NOT match programming languages that are merely similar.
+
+VALID EXAMPLES:
+
+"excel" ↔ "microsoft excel"
+"powerpoint" ↔ "microsoft powerpoint"
+"access" ↔ "microsoft access"
+"react.js" ↔ "react"
+"node js" ↔ "node.js"
+"web developement" ↔ "web development"
+"webdevelopment" ↔ "web development"
+"sql database" ↔ "sql"
+"javascript development" ↔ "javascript"
+
+INVALID EXAMPLES:
+
+"javascript" ↔ "java"
+"python" ↔ "python java"
+"html" ↔ "react"
+"css" ↔ "react"
+"sql" ↔ "excel"
+"management" ↔ "python"
+"research" ↔ "javascript"
+
+IMPORTANT:
+
+A candidate skill should only match a job skill when you are reasonably confident that they represent the same or substantially equivalent professional skill.
+
+Return ONLY a JSON array.
+
+For every valid match return:
+
+[
+    {
+        "jobSkill": "job skill",
+        "candidateSkill": "candidate skill",
+        "matched": true,
+        "confidence": 0.95
+    }
+]
+
+Confidence must be a number between 0 and 1.
+
+Only return matches where:
+
+confidence >= 0.80
+
+Do not return unmatched skills.
+`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-3.5-flash-lite",
+
+            contents: prompt,
+
+            config: {
+                responseMimeType: "application/json",
+
+                responseSchema: {
+                    type: "ARRAY",
+
+                    items: {
+                        type: "OBJECT",
+
+                        properties: {
+                            jobSkill: {
+                                type: "STRING"
+                            },
+
+                            candidateSkill: {
+                                type: "STRING"
+                            },
+
+                            matched: {
+                                type: "BOOLEAN"
+                            },
+
+                            confidence: {
+                                type: "NUMBER"
+                            }
+                        },
+
+                        required: [
+                            "jobSkill",
+                            "candidateSkill",
+                            "matched",
+                            "confidence"
+                        ]
+                    }
+                }
+            }
+        });
+
+        // Gemini returns JSON text
+        const result = JSON.parse(response.text);
+
+        if (!Array.isArray(result)) {
+            console.log("AI returned invalid skill matches.");
+            return [];
+        }
+
+        // Normalize the AI response
+        const validMatches = result
+            .filter(item => {
+
+                if (!item) {
+                    return false;
+                }
+
+                if (item.matched !== true) {
+                    return false;
+                }
+
+                if (
+                    typeof item.jobSkill !== "string" ||
+                    typeof item.candidateSkill !== "string"
+                ) {
+                    return false;
+                }
+
+                if (
+                    typeof item.confidence !== "number"
+                ) {
+                    return false;
+                }
+
+                if (item.confidence < 0.80) {
+                    return false;
+                }
+
+                return true;
+            })
+            .map(item => ({
+                jobSkill: normalizeSkill(
+                    item.jobSkill
+                ),
+
+                candidateSkill: normalizeSkill(
+                    item.candidateSkill
+                ),
+
+                confidence: item.confidence
+            }));
+
+        // ------------------------------------------
+        // SAFETY CHECK
+        // ------------------------------------------
+        // Only accept matches for skills that
+        // actually exist in our input arrays.
+        // This prevents Gemini from inventing skills.
+
+        const safeMatches = validMatches.filter(
+            match => {
+
+                const jobExists =
+                    jobSkills.includes(
+                        match.jobSkill
+                    );
+
+                const candidateExists =
+                    candidateSkills.includes(
+                        match.candidateSkill
+                    );
+
+                return (
+                    jobExists &&
+                    candidateExists
+                );
+            }
+        );
+
+        console.log(
+            "AI skill matches:",
+            safeMatches
+        );
+
+        return safeMatches;
 
     } catch (error) {
-        console.log("Profile error:", error);
 
-        res.status(500).json({
-            message: "Failed to fetch profile"
-        });
+        console.log(
+            "AI skill matching failed:",
+            error.message
+        );
+
+        // AI failure should NEVER break
+        // normal job matching.
+        return [];
     }
-});
-app.listen(PORT,()=>{
-    console.log(`Server running on port ${PORT}`);
-});
+}
+
+// ==================================================
+// JOB MATCHING
+// ==================================================
+
+app.get(
+    "/api/jobs/matches/:candidateId",
+    async (req, res) => {
+
+        try {
+
+            const candidate =
+                await User.findById(
+                    req.params.candidateId
+                );
+
+            if (!candidate) {
+                return res.status(404).json({
+                    message:
+                        "Candidate not found"
+                });
+            }
+
+            const jobs =
+                await Job.find();
+
+            const candidateSkills = [
+                ...new Set(
+                    (candidate.skills || [])
+                        .map(skill =>
+                            normalizeSkill(skill)
+                        )
+                        .filter(Boolean)
+                )
+            ];
+
+            console.log(
+                "Candidate skills:",
+                candidateSkills
+            );
+
+            const matchedJobs = [];
+
+            for (const job of jobs) {
+
+                const jobSkills = [
+                    ...new Set(
+                        (job.skills || "")
+                            .split(",")
+                            .map(skill =>
+                                normalizeSkill(skill)
+                            )
+                            .filter(Boolean)
+                    )
+                ];
+
+                // ------------------------------------------
+                // STEP 1: EXACT MATCHING
+                // ------------------------------------------
+const matchedSkills = [];
+const exactMatchedSkills = [];
+const missingSkills = [];
+
+                for (const jobSkill of jobSkills) {
+
+                    if (
+                        candidateSkills.includes(
+                            jobSkill
+                        )
+                    ) {
+
+                        matchedSkills.push(
+                            jobSkill
+                        );
+
+                    } else {
+
+                        missingSkills.push(
+                            jobSkill
+                        );
+
+                    }
+                }
+
+                // ------------------------------------------
+                // STEP 2: AI MATCHING
+                // Only run AI for skills that did not
+                // already match exactly.
+                // ------------------------------------------
+
+                let aiMatchedSkills = [];
+
+                if (
+                    missingSkills.length > 0 &&
+                    candidateSkills.length > 0
+                ) {
+
+                    const aiMatches =
+                        await findAISkillMatches(
+                            candidateSkills,
+                            missingSkills
+                        );
+
+                    for (const match of aiMatches) {
+
+                        const jobSkill =
+                            normalizeSkill(
+                                match.jobSkill
+                            );
+
+                        const candidateSkill =
+                            normalizeSkill(
+                                match.candidateSkill
+                            );
+
+                        // Safety check:
+                        // only accept AI results for skills
+                        // that actually exist in our lists.
+
+                        if (
+                            missingSkills.includes(
+                                jobSkill
+                            ) &&
+                            candidateSkills.includes(
+                                candidateSkill
+                            )
+                        ) {
+
+                            if (
+                                !matchedSkills.includes(
+                                    jobSkill
+                                )
+                            ) {
+
+                                matchedSkills.push(
+                                    jobSkill
+                                );
+
+                                aiMatchedSkills.push({
+                                    jobSkill,
+                                    candidateSkill
+                                });
+
+                            }
+                        }
+                    }
+                }
+
+                // ------------------------------------------
+                // STEP 3: FINAL MISSING SKILLS
+                // ------------------------------------------
+
+                const finalMissingSkills =
+                    jobSkills.filter(
+                        skill =>
+                            !matchedSkills.includes(
+                                skill
+                            )
+                    );
+
+                // ------------------------------------------
+                // STEP 4: MATCH PERCENTAGE
+                // ------------------------------------------
+
+             // ------------------------------------------
+// STEP 4: WEIGHTED MATCH SCORE
+// ------------------------------------------
+
+// Exact matches receive full credit.
+// AI matches receive partial credit.
+
+const exactMatchCount = matchedSkills.length - aiMatchedSkills.length;
+
+const aiMatchScore = aiMatchedSkills.reduce(
+    (total, match) => {
+        return total + (match.confidence || 0);
+    },
+    0
+);
+
+const totalMatchScore =
+    exactMatchCount + aiMatchScore;
+
+const matchPercentage =
+    jobSkills.length > 0
+        ? Math.round(
+            (totalMatchScore / jobSkills.length) * 100
+        )
+        : 0;
+
+                console.log(
+                    `Job: ${job.title}`
+                );
+
+                console.log(
+                    "Matched:",
+                    matchedSkills
+                );
+
+                console.log(
+                    "AI matched:",
+                    aiMatchedSkills
+                );
+
+                console.log(
+                    "Missing:",
+                    finalMissingSkills
+                );
+
+                console.log(
+                    "Match percentage:",
+                    matchPercentage
+                );
+
+                matchedJobs.push({
+
+                    job,
+
+                    matchPercentage,
+
+                    matchedSkills,
+
+                    missingSkills:
+                        finalMissingSkills,
+
+                    aiMatchedSkills
+
+                });
+            }
+
+            // ------------------------------------------
+            // SORT BEST MATCHES FIRST
+            // ------------------------------------------
+
+            matchedJobs.sort(
+                (a, b) =>
+                    b.matchPercentage -
+                    a.matchPercentage
+            );
+
+            res.json(
+                matchedJobs
+            );
+
+        } catch (error) {
+
+            console.log(
+                "Job matching error:",
+                error
+            );
+
+            res.status(500).json({
+                message:
+                    "Failed to calculate job matches"
+            });
+        }
+    }
+);
+// ==================================================
+// START SERVER
+// ==================================================
+
+app.listen(
+    PORT,
+    () => {
+
+        console.log(
+            `Server running on port ${PORT}`
+        );
+
+    }
+);
