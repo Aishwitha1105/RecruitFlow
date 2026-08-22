@@ -298,8 +298,11 @@ fetchProfile();
 
                                 {/* MATCH DETAILS */}
 
+{/* MATCH DETAILS */}
+
 <div className="match-details">
 
+    {/* EXACT MATCHES */}
     {item.matchedSkills?.length > 0 && (
         <div className="match-skills">
 
@@ -318,6 +321,51 @@ fetchProfile();
         </div>
     )}
 
+    {/* AI MATCHES */}
+    {item.aiMatchedSkills?.length > 0 && (
+        <div className="ai-match-skills">
+
+            <h4>✨ AI-assisted matches</h4>
+
+            <div className="ai-match-list">
+
+                {item.aiMatchedSkills.map((match, index) => (
+                    <div
+                        className="ai-match-item"
+                        key={`${match.jobSkill}-${match.candidateSkill}-${index}`}
+                    >
+
+                        <div className="ai-match-skills-row">
+
+                            <span className="ai-candidate-skill">
+                                {match.candidateSkill}
+                            </span>
+
+                            <span className="ai-arrow">
+                                →
+                            </span>
+
+                            <span className="ai-job-skill">
+                                {match.jobSkill}
+                            </span>
+
+                        </div>
+
+                        {match.confidence && (
+                            <span className="ai-confidence">
+                                {Math.round(match.confidence * 100)}% confidence
+                            </span>
+                        )}
+
+                    </div>
+                ))}
+
+            </div>
+
+        </div>
+    )}
+
+    {/* MISSING SKILLS */}
     {item.missingSkills?.length > 0 && (
         <div className="missing-skills">
 
@@ -336,6 +384,7 @@ fetchProfile();
         </div>
     )}
 
+    {/* EXPLANATION */}
     <div className="match-explanation">
 
         <strong>
@@ -343,11 +392,36 @@ fetchProfile();
         </strong>
 
         <p>
-            Your profile matches{" "}
-            {item.matchedSkills?.length || 0} of{" "}
-            {(item.matchedSkills?.length || 0) +
-                (item.missingSkills?.length || 0)}{" "}
-            required skills.
+
+            Your profile has{" "}
+            <strong>
+                {item.matchedSkills?.length || 0}
+            </strong>{" "}
+            exact skill match
+            {(item.matchedSkills?.length || 0) !== 1 ? "es" : ""}.
+
+            {item.aiMatchedSkills?.length > 0 && (
+                <>
+                    {" "}AI also identified{" "}
+                    <strong>
+                        {item.aiMatchedSkills.length}
+                    </strong>{" "}
+                    related skill
+                    {item.aiMatchedSkills.length !== 1 ? "s" : ""}.
+                </>
+            )}
+
+            {item.missingSkills?.length > 0 && (
+                <>
+                    {" "}You are missing{" "}
+                    <strong>
+                        {item.missingSkills.length}
+                    </strong>{" "}
+                    required skill
+                    {item.missingSkills.length !== 1 ? "s" : ""}.
+                </>
+            )}
+
         </p>
 
     </div>

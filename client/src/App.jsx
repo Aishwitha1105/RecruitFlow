@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import MyApplications from "./pages/MyApplications";
 import RecruiterApplications from "./pages/RecruiterApplications";
 import MySkills from "./pages/MySkills";
+import RecruiterJobDetails from "./pages/RecruiterJobDetails";
 import ResumeUpload from "./pages/ResumeUpload";
 import './App.css'
 
@@ -43,6 +44,10 @@ function App() {
 <Route
     path="/jobs/:id"
     element={<JobDetails />}
+/>
+<Route
+    path="/recruiter/jobs/:id"
+    element={<RecruiterJobDetails />}
 />
 <Route
     path="/applications"

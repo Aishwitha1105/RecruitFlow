@@ -31,16 +31,18 @@ function Login() {
                 alert("Login successful!");
 
                 localStorage.setItem("token", data.token);
-                localStorage.setItem("user", JSON.stringify(data.user));
+                localStorage.setItem(
+                    "user",
+                    JSON.stringify(data.user)
+                );
 
                 if (data.user.role === "candidate") {
                     navigate("/candidate/dashboard");
-                } else if(data.user.role === "recruiter"){
+                } else if (data.user.role === "recruiter") {
                     navigate("/recruiter/dashboard");
                 }
- 
-            } 
-            else {
+
+            } else {
                 alert(data.message);
             }
 
@@ -50,55 +52,98 @@ function Login() {
     }
 
     return (
-        <main>
-            <h1>Login</h1>
+        <main className="auth-page">
 
-            <form onSubmit={handleSubmit}>
+            <div className="auth-card login-card">
 
-                <div>
-                    <label>Email</label>
+                <div className="login-header">
 
-                    <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) =>
-                            setFormData({
-                                ...formData,
-                                email: e.target.value
-                            })
-                        }
-                    />
+                    <span className="dashboard-label">
+                        RECRUITFLOW
+                    </span>
+
+                    <h1>
+                        Welcome Back
+                    </h1>
+
+                    <p className="auth-subtitle">
+                        Sign in to continue to your RecruitFlow account.
+                    </p>
+
                 </div>
 
-                <div>
-                    <label>Password</label>
+                <form
+                    className="auth-form"
+                    onSubmit={handleSubmit}
+                >
 
-                    <div>
+                    <div className="form-group">
+
+                        <label>Email</label>
+
                         <input
-                            type={showPassword ? "text" : "password"}
-                            value={formData.password}
+                            type="email"
+                            placeholder="abc@gmail.com"
+                            value={formData.email}
                             onChange={(e) =>
                                 setFormData({
                                     ...formData,
-                                    password: e.target.value
+                                    email: e.target.value
                                 })
                             }
+                            required
                         />
 
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                        >
-                            {showPassword ? "👁️" : "👁️"}
-                        </button>
                     </div>
-                </div>
 
-                <button type="submit">
-                    Login
-                </button>
+                    <div className="form-group">
 
-            </form>
+                        <label>Password</label>
+
+                        <div className="password-wrapper">
+
+                            <input
+                                type={
+                                    showPassword
+                                        ? "text"
+                                        : "password"
+                                }
+                                placeholder="Enter your password"
+                                value={formData.password}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        password: e.target.value
+                                    })
+                                }
+                                required
+                            />
+
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                onClick={() =>
+                                    setShowPassword(!showPassword)
+                                }
+                            >
+                                {showPassword ? "🙈" : "👁️"}
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <button
+                        type="submit"
+                        className="auth-button"
+                    >
+                        Login
+                    </button>
+
+                </form>
+
+            </div>
+
         </main>
     );
 }

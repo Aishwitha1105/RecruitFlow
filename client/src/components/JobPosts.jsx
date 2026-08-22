@@ -1,14 +1,29 @@
-function JobPosts({ title, noofapplicants, status }) {
+import { Link } from "react-router-dom";
+
+function JobPosts({
+     id,
+    title,
+    noofapplicants,
+    status
+}) {
     return (
-        <div>
+        <article className="job-post-card">
+
             <h2>{title}</h2>
 
-            <p>Applicants: {noofapplicants}</p>
+            <p>
+                Applicants: {noofapplicants}
+            </p>
 
-            <p>Status: {status}</p>
+            <p>
+                Status: {status}
+            </p>
 
-            <button>View</button>
-        </div>
+            <button><Link to={`/recruiter/jobs/${id}`}>
+    View
+</Link></button>
+
+        </article>
     );
 }
 
