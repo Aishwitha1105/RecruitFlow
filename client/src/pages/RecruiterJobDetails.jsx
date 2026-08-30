@@ -11,7 +11,11 @@ function RecruiterJobDetails() {
     useEffect(() => {
         async function fetchJob() {
             try {
-                const response = await fetch(`/api/jobs/${id}`);
+                const response = await fetch(`/api/jobs/${id}`, {
+                    headers: {
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    }
+                });
 
                 const data = await response.json();
 
@@ -25,7 +29,9 @@ function RecruiterJobDetails() {
 
             } catch (error) {
                 console.log("Recruiter job error:", error);
-                setError("Unable to load job.");
+                setError(
+                    error.message || "Unable to load job."
+                );
             } finally {
                 setLoading(false);
             }
@@ -36,24 +42,43 @@ function RecruiterJobDetails() {
 
     if (loading) {
         return (
-            <main>
-                <p>Loading job...</p>
+            <main className="recruiter-job-details">
+                <div className="job-details-container">
+                    <p className="job-details-message">
+                        Loading job...
+                    </p>
+                </div>
             </main>
         );
     }
 
     if (error) {
         return (
-            <main>
-                <p>{error}</p>
+            <main className="recruiter-job-details">
+                <div className="job-details-container">
+                    <p className="job-details-error">
+                        {error}
+                    </p>
+
+                    <Link
+                        to="/recruiter/dashboard"
+                        className="back-dashboard-button"
+                    >
+                        ← Back to Dashboard
+                    </Link>
+                </div>
             </main>
         );
     }
 
     if (!job) {
         return (
-            <main>
-                <p>Job not found.</p>
+            <main className="recruiter-job-details">
+                <div className="job-details-container">
+                    <p className="job-details-error">
+                        Job not found.
+                    </p>
+                </div>
             </main>
         );
     }
@@ -61,75 +86,125 @@ function RecruiterJobDetails() {
     return (
         <main className="recruiter-job-details">
 
-            <section>
-                <p className="eyebrow">
-                    RECRUITER
-                </p>
+            <div className="job-details-container">
 
-                <h1>
-                    {job.title}
-                </h1>
+                {/* HEADER */}
 
-                <p>
-                    {job.company}
-                </p>
+                <section className="recruiter-job-header">
 
-                <p>
-                    📍 {job.location}
-                </p>
+                    <p className="eyebrow">
+                        RECRUITER
+                    </p>
 
-                <p>
-                    💼 {job.jobType}
-                </p>
-            </section>
+                    <h1>
+                        {job.title}
+                    </h1>
 
-            <section>
-                <h2>
-                    Job Description
-                </h2>
+                    <p className="company-name">
+                        {job.company}
+                    </p>
 
-                <p>
-                    {job.description}
-                </p>
-            </section>
+                    <div className="job-meta">
 
-            <section>
-                <h2>
-                    Required Skills
-                </h2>
+                        <span>
+                            📍 {job.location}
+                        </span>
 
-                <p>
-                    {job.skills}
-                </p>
-            </section>
+                        <span>
+                            💼 {job.jobType}
+                        </span>
 
-            <section>
-                <h2>
-                    Experience
-                </h2>
+                        <span>
+                            🎓 {job.experience}
+                        </span>
 
-                <p>
-                    {job.experience}
-                </p>
-            </section>
+                    </div>
 
-            <section>
-                <h2>
-                    Job Status
-                </h2>
+                </section>
 
-                <p>
-                    {job.status}
-                </p>
 
-                <p>
-                    Applicants: {job.noofapplicants || 0}
-                </p>
-            </section>
+                {/* DESCRIPTION */}
 
-            <Link to="/recruiter/applications">
-                View Applicants
-            </Link>
+                <section className="recruiter-job-section">
+
+                    <h2>
+                        Job Description
+                    </h2>
+
+                    <p>
+                        {job.description || "No description provided."}
+                    </p>
+
+                </section>
+
+
+                {/* SKILLS */}
+
+                <section className="recruiter-job-section">
+
+                    <h2>
+                        Required Skills
+                    </h2>
+
+                    <p>
+                        {job.skills || "No skills specified."}
+                    </p>
+
+                </section>
+
+
+                {/* STATUS */}
+
+                <section className="recruiter-job-section">
+
+                    <h2>
+                        Job Status
+                    </h2>
+
+                    <div className="job-status-info">
+
+                        <div>
+                            <span>Status</span>
+
+                            <strong>
+                                {job.status || "active"}
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Applicants</span>
+
+                            <strong>
+                                {job.noofapplicants || 0}
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                {/* ACTION BUTTONS */}
+
+                <section className="recruiter-job-actions">
+
+                    <Link
+                        to={`/recruiter/jobs/${job._id}/edit`}
+                        className="edit-job-button"
+                    >
+                        Edit Job
+                    </Link>
+
+                    <Link
+                        to="/recruiter/applications"
+                        className="view-applicants-button"
+                    >
+                        View Applicants
+                    </Link>
+
+                </section>
+
+            </div>
 
         </main>
     );

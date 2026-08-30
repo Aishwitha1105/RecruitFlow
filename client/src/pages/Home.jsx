@@ -30,7 +30,7 @@ function Home() {
                         </Link>
 
                         <Link
-                            to="/recruiter/register"
+                            to="/recruiter/dashboard"
                             className="secondary-btn"
                         >
                             Hire Talent

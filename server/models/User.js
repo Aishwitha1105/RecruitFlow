@@ -26,6 +26,23 @@ const userSchema = new mongoose.Schema({
     skills: {
         type: [String],
         default: []
+    },
+
+    resume: {
+        originalName: {
+            type: String,
+            default: ""
+        },
+
+        fileName: {
+            type: String,
+            default: ""
+        },
+
+        uploadedAt: {
+            type: Date,
+            default: null
+        }
     }
 });
 

@@ -101,7 +101,12 @@ const ai = new GoogleGenAI({
 const app = express();
 
 app.use(express.json());
-
+app.use(
+    "/uploads",
+    express.static(
+        path.join(__dirname, "uploads")
+    )
+);
 connectDB();
 
 const PORT = 5000;
@@ -244,7 +249,136 @@ app.get("/api/jobs/:id", async (req, res) => {
         });
     }
 });
+// ==================================================
+// UPDATE JOB - RECRUITER
+// ==================================================
 
+// app.put("/api/jobs/:id", protect, async (req, res) => {
+//     try {
+
+//         // Only recruiters can edit jobs
+//         if (req.user.role !== "recruiter") {
+//             return res.status(403).json({
+//                 message: "Recruiter access required"
+//             });
+//         }
+
+//         // Find the job
+//         const job = await Job.findById(req.params.id);
+
+//         if (!job) {
+//             return res.status(404).json({
+//                 message: "Job not found"
+//             });
+//         }
+
+//         // Make sure this recruiter owns the job
+//         if (
+//             job.recruiter.toString() !==
+//             req.user.userId.toString()
+//         ) {
+//             return res.status(403).json({
+//                 message: "You are not allowed to edit this job"
+//             });
+//         }
+
+//         // Update job fields
+//         job.title = req.body.title;
+//         job.company = req.body.company;
+//         job.location = req.body.location;
+//         job.jobType = req.body.jobType;
+//         job.skills = req.body.skills;
+//         job.experience = req.body.experience;
+//         job.description = req.body.description;
+
+//         // Save to MongoDB
+//         const updatedJob = await job.save();
+
+//         res.json(updatedJob);
+
+//     } catch (error) {
+
+//         console.log("Update job error:", error);
+
+//         res.status(500).json({
+//             message: "Failed to update job"
+//         });
+//     }
+// });
+// ==================================================
+// UPDATE JOB
+// ==================================================
+
+app.put("/api/jobs/:id", protect, async (req, res) => {
+    try {
+
+        // Only recruiters can edit jobs
+        if (req.user.role !== "recruiter") {
+            return res.status(403).json({
+                message: "Recruiter access required"
+            });
+        }
+
+        const {
+            title,
+            company,
+            location,
+            jobType,
+            skills,
+            experience,
+            description
+        } = req.body;
+
+
+        // Find the job
+        const job = await Job.findById(req.params.id);
+
+        if (!job) {
+            return res.status(404).json({
+                message: "Job not found"
+            });
+        }
+
+
+        // Make sure this recruiter owns the job
+        if (
+            job.recruiter.toString() !==
+            req.user.userId.toString()
+        ) {
+            return res.status(403).json({
+                message: "You are not allowed to edit this job"
+            });
+        }
+
+
+        // Update fields
+        job.title = title;
+        job.company = company;
+        job.location = location;
+        job.jobType = jobType;
+        job.skills = skills;
+        job.experience = experience;
+        job.description = description;
+
+
+        // Save to MongoDB
+        const updatedJob = await job.save();
+
+
+        res.json({
+            message: "Job updated successfully",
+            job: updatedJob
+        });
+
+    } catch (error) {
+
+        console.log("Update job error:", error);
+
+        res.status(500).json({
+            message: "Failed to update job"
+        });
+    }
+});
 // ==================================================
 // TEST ROUTE
 // ==================================================
@@ -1343,18 +1477,22 @@ ${sanitizedText}
             // SAVE SKILLS TO USER
             // ==================================================
 
-            const updatedUser =
-                await User.findByIdAndUpdate(
-                    req.params.id,
-                    {
-                        skills:
-                            finalSkills
-                    },
-                    {
-                        returnDocument:
-                            "after"
-                    }
-                )
+          const updatedUser =
+    await User.findByIdAndUpdate(
+        req.params.id,
+        {
+            skills: finalSkills,
+
+            resume: {
+                originalName: req.file.originalname,
+                fileName: req.file.filename,
+                uploadedAt: new Date()
+            }
+        },
+        {
+            returnDocument: "after"
+        }
+    )
                     .select("-password");
 
             if (!updatedUser) {
@@ -1408,112 +1546,61 @@ async function findAISkillMatches(candidateSkills, jobSkills) {
         }
 
         const prompt = `
-You are a careful AI recruitment skill-matching assistant.
+Match JOB SKILLS against CANDIDATE SKILLS.
 
-Your task is to determine whether a candidate skill matches a required job skill.
-
-CANDIDATE SKILLS:
+Candidate skills:
 ${JSON.stringify(candidateSkills)}
 
-JOB REQUIRED SKILLS:
+Job skills:
 ${JSON.stringify(jobSkills)}
 
-MATCHING RULES:
-
-1. Match exact skills.
-2. Match common naming variations.
-3. Match common abbreviations.
-4. Match spelling mistakes and obvious typos.
-5. Match equivalent names for the same technology/tool.
-6. Match a specific skill to a broader skill ONLY when the relationship is clear.
-7. Do NOT match unrelated technologies.
-8. Do NOT assume that similar-looking words mean the same thing.
-9. Do NOT match programming languages that are merely similar.
-
-VALID EXAMPLES:
-
-"excel" ↔ "microsoft excel"
-"powerpoint" ↔ "microsoft powerpoint"
-"access" ↔ "microsoft access"
-"react.js" ↔ "react"
-"node js" ↔ "node.js"
-"web developement" ↔ "web development"
-"webdevelopment" ↔ "web development"
-"sql database" ↔ "sql"
-"javascript development" ↔ "javascript"
-
-INVALID EXAMPLES:
-
-"javascript" ↔ "java"
-"python" ↔ "python java"
-"html" ↔ "react"
-"css" ↔ "react"
-"sql" ↔ "excel"
-"management" ↔ "python"
-"research" ↔ "javascript"
-
-IMPORTANT:
-
-A candidate skill should only match a job skill when you are reasonably confident that they represent the same or substantially equivalent professional skill.
+Rules:
+- Exact matches are already handled.
+- Only return genuine semantic equivalents.
+- Do not match unrelated technologies.
+- JavaScript is not Java.
+- HTML is not React.
+- CSS is not React.
+- SQL is not Excel.
+- Each job skill can have only ONE candidate skill.
+- Only return confidence >= 0.80.
+- Do not return unmatched skills.
 
 Return ONLY a JSON array.
 
-For every valid match return:
-
+Format:
 [
-    {
-        "jobSkill": "job skill",
-        "candidateSkill": "candidate skill",
-        "matched": true,
-        "confidence": 0.95
-    }
+  {
+    "jobSkill": "business analysis",
+    "candidateSkill": "data analysis",
+    "confidence": 0.85
+  }
 ]
-
-Confidence must be a number between 0 and 1.
-
-Only return matches where:
-
-confidence >= 0.80
-
-Do not return unmatched skills.
 `;
 
         const response = await ai.models.generateContent({
             model: "gemini-3.5-flash-lite",
-
             contents: prompt,
-
             config: {
                 responseMimeType: "application/json",
-
                 responseSchema: {
                     type: "ARRAY",
-
                     items: {
                         type: "OBJECT",
-
                         properties: {
                             jobSkill: {
                                 type: "STRING"
                             },
-
                             candidateSkill: {
                                 type: "STRING"
                             },
-
-                            matched: {
-                                type: "BOOLEAN"
-                            },
-
                             confidence: {
                                 type: "NUMBER"
                             }
                         },
-
                         required: [
                             "jobSkill",
                             "candidateSkill",
-                            "matched",
                             "confidence"
                         ]
                     }
@@ -1521,107 +1608,67 @@ Do not return unmatched skills.
             }
         });
 
-        // Gemini returns JSON text
         const result = JSON.parse(response.text);
 
         if (!Array.isArray(result)) {
-            console.log("AI returned invalid skill matches.");
             return [];
         }
 
-        // Normalize the AI response
-        const validMatches = result
-            .filter(item => {
+        const safeMatches = [];
 
-                if (!item) {
-                    return false;
-                }
+        for (const item of result) {
+            if (!item) continue;
 
-                if (item.matched !== true) {
-                    return false;
-                }
-
-                if (
-                    typeof item.jobSkill !== "string" ||
-                    typeof item.candidateSkill !== "string"
-                ) {
-                    return false;
-                }
-
-                if (
-                    typeof item.confidence !== "number"
-                ) {
-                    return false;
-                }
-
-                if (item.confidence < 0.80) {
-                    return false;
-                }
-
-                return true;
-            })
-            .map(item => ({
-                jobSkill: normalizeSkill(
-                    item.jobSkill
-                ),
-
-                candidateSkill: normalizeSkill(
-                    item.candidateSkill
-                ),
-
-                confidence: item.confidence
-            }));
-
-        // ------------------------------------------
-        // SAFETY CHECK
-        // ------------------------------------------
-        // Only accept matches for skills that
-        // actually exist in our input arrays.
-        // This prevents Gemini from inventing skills.
-
-        const safeMatches = validMatches.filter(
-            match => {
-
-                const jobExists =
-                    jobSkills.includes(
-                        match.jobSkill
-                    );
-
-                const candidateExists =
-                    candidateSkills.includes(
-                        match.candidateSkill
-                    );
-
-                return (
-                    jobExists &&
-                    candidateExists
-                );
+            if (
+                typeof item.jobSkill !== "string" ||
+                typeof item.candidateSkill !== "string" ||
+                typeof item.confidence !== "number"
+            ) {
+                continue;
             }
-        );
 
-        console.log(
-            "AI skill matches:",
-            safeMatches
-        );
+            const jobSkill = normalizeSkill(item.jobSkill);
+            const candidateSkill = normalizeSkill(item.candidateSkill);
+            const confidence = Math.min(
+                Number(item.confidence),
+                1
+            );
+
+            if (confidence < 0.80) {
+                continue;
+            }
+
+            if (!jobSkills.includes(jobSkill)) {
+                continue;
+            }
+
+            if (!candidateSkills.includes(candidateSkill)) {
+                continue;
+            }
+
+            const alreadyMatched = safeMatches.some(
+                match => match.jobSkill === jobSkill
+            );
+
+            if (alreadyMatched) {
+                continue;
+            }
+
+            safeMatches.push({
+                jobSkill,
+                candidateSkill,
+                confidence
+            });
+        }
 
         return safeMatches;
 
     } catch (error) {
-
-        console.log(
-            "AI skill matching failed:",
-            error.message
-        );
-
-        // AI failure should NEVER break
-        // normal job matching.
+        // Do not print Gemini matching errors in terminal.
         return [];
     }
 }
 
-// ==================================================
-// JOB MATCHING
-// ==================================================
 
 // ==================================================
 // JOB MATCHING
@@ -1648,11 +1695,13 @@ app.get(
                 });
             }
 
+
             // ==================================================
             // GET JOBS
             // ==================================================
 
             const jobs = await Job.find();
+
 
             // ==================================================
             // NORMALIZE CANDIDATE SKILLS
@@ -1661,17 +1710,16 @@ app.get(
             const candidateSkills = [
                 ...new Set(
                     (candidate.skills || [])
-                        .map(skill => normalizeSkill(skill))
+                        .map(skill =>
+                            normalizeSkill(skill)
+                        )
                         .filter(Boolean)
                 )
             ];
 
-            console.log(
-                "Candidate skills:",
-                candidateSkills
-            );
 
             const matchedJobs = [];
+
 
             // ==================================================
             // PROCESS EACH JOB
@@ -1679,19 +1727,9 @@ app.get(
 
             for (const job of jobs) {
 
-                // --------------------------------------------------
-                // SPLIT JOB SKILLS
-                // --------------------------------------------------
-                //
-                // Supports:
-                //
-                // "SQL, Excel, Python"
-                //
-                // and also:
-                //
-                // "C++ Python Java WebDevelopment"
-                //
-                // --------------------------------------------------
+                // ==================================================
+                // GET JOB SKILLS
+                // ==================================================
 
                 let rawJobSkills = [];
 
@@ -1708,9 +1746,6 @@ app.get(
 
                                 const trimmed =
                                     skill.trim();
-
-                                // Fix common badly formatted
-                                // combined skills.
 
                                 if (
                                     /^c\+\+\s+python\s+java$/i
@@ -1737,9 +1772,10 @@ app.get(
                             });
                 }
 
-                // --------------------------------------------------
+
+                // ==================================================
                 // NORMALIZE JOB SKILLS
-                // --------------------------------------------------
+                // ==================================================
 
                 const jobSkills = [
                     ...new Set(
@@ -1751,12 +1787,12 @@ app.get(
                     )
                 ];
 
+
                 // ==================================================
                 // EXACT MATCHING
                 // ==================================================
 
                 const exactMatchedSkills = [];
-
                 const unmatchedJobSkills = [];
 
                 for (const jobSkill of jobSkills) {
@@ -1779,18 +1815,9 @@ app.get(
                     }
                 }
 
+
                 // ==================================================
                 // AI MATCHING
-                // ==================================================
-                //
-                // IMPORTANT:
-                //
-                // AI is ONLY used for skills that did not
-                // already match exactly.
-                //
-                // Therefore AI can never reduce an exact
-                // match.
-                //
                 // ==================================================
 
                 let aiMatchedSkills = [];
@@ -1806,9 +1833,10 @@ app.get(
                             unmatchedJobSkills
                         );
 
-                    // ------------------------------------------
-                    // SAFETY CHECK
-                    // ------------------------------------------
+
+                    // ==================================================
+                    // VALIDATE AI MATCHES
+                    // ==================================================
 
                     for (const match of aiMatches) {
 
@@ -1827,53 +1855,54 @@ app.get(
                                 match.confidence || 0
                             );
 
-                        // Only accept if:
 
-                        // 1. Job skill actually exists
-                        // 2. Candidate skill actually exists
-                        // 3. Job skill was not already an
-                        //    exact match
-                        // 4. Confidence >= 0.80
-
+                        // Job skill must be unmatched
                         if (
-                            unmatchedJobSkills.includes(
+                            !unmatchedJobSkills.includes(
                                 jobSkill
-                            ) &&
-
-                            candidateSkills.includes(
-                                candidateSkill
-                            ) &&
-
-                            !exactMatchedSkills.includes(
-                                jobSkill
-                            ) &&
-
-                            confidence >= 0.80
+                            )
                         ) {
-
-                            // Avoid duplicate AI matches
-
-                            const alreadyMatched =
-                                aiMatchedSkills.some(
-                                    item =>
-                                        item.jobSkill ===
-                                            jobSkill
-                                );
-
-                            if (!alreadyMatched) {
-
-                                aiMatchedSkills.push({
-
-                                    jobSkill,
-
-                                    candidateSkill,
-
-                                    confidence: match.confidence
-                                });
-                            }
+                            continue;
                         }
+
+
+                        // Candidate skill must exist
+                        if (
+                            !candidateSkills.includes(
+                                candidateSkill
+                            )
+                        ) {
+                            continue;
+                        }
+
+
+                        // Confidence requirement
+                        if (confidence < 0.80) {
+                            continue;
+                        }
+
+
+                        // Prevent duplicate job skill
+                        const alreadyMatched =
+                            aiMatchedSkills.some(
+                                item =>
+                                    item.jobSkill ===
+                                    jobSkill
+                            );
+
+                        if (alreadyMatched) {
+                            continue;
+                        }
+
+
+                        aiMatchedSkills.push({
+                            jobSkill,
+                            candidateSkill,
+                            confidence
+                        });
                     }
                 }
+
 
                 // ==================================================
                 // FINAL MATCHED SKILLS
@@ -1890,6 +1919,7 @@ app.get(
                     ...aiMatchedJobSkills
                 ];
 
+
                 // ==================================================
                 // FINAL MISSING SKILLS
                 // ==================================================
@@ -1902,44 +1932,9 @@ app.get(
                             )
                     );
 
+
                 // ==================================================
                 // MATCH SCORE
-                // ==================================================
-                //
-                // EXACT MATCH:
-                //      1.00 point
-                //
-                // AI MATCH:
-                //      confidence score
-                //
-                // Example:
-                //
-                // Job:
-                // SQL
-                // Excel
-                // Python
-                //
-                // Candidate:
-                // SQL
-                // Excel
-                //
-                // Score:
-                //
-                // 2 / 3 = 67%
-                //
-                // --------------------------------------------------
-                //
-                // Example with AI:
-                //
-                // SQL       = 1.00
-                // Excel     = 1.00
-                // Business Analysis
-                // vs Data Analysis = 0.85
-                //
-                // Total:
-                //
-                // 2.85 / 3 = 95%
-                //
                 // ==================================================
 
                 const exactScore =
@@ -1950,7 +1945,9 @@ app.get(
                         (total, match) =>
                             total +
                             Math.min(
-                                match.confidence,
+                                Number(
+                                    match.confidence
+                                ),
                                 1
                             ),
                         0
@@ -1969,60 +1966,20 @@ app.get(
                         )
                         : 0;
 
-                // ==================================================
-                // DEBUG LOGGING
-                // ==================================================
-
-                console.log(
-                    "----------------------------------------"
-                );
-
-                console.log(
-                    `Job: ${job.title}`
-                );
-
-                console.log(
-                    "Job skills:",
-                    jobSkills
-                );
-
-                console.log(
-                    "Exact matched:",
-                    exactMatchedSkills
-                );
-
-                console.log(
-                    "AI matched:",
-                    aiMatchedSkills
-                );
-
-                console.log(
-                    "Missing:",
-                    missingSkills
-                );
-
-                console.log(
-                    "Match percentage:",
-                    matchPercentage
-                );
 
                 // ==================================================
                 // SAVE RESULT
                 // ==================================================
 
                 matchedJobs.push({
-
                     job,
-
                     matchPercentage,
-
                     matchedSkills,
-
                     missingSkills,
-
                     aiMatchedSkills
                 });
             }
+
 
             // ==================================================
             // SORT BEST MATCHES FIRST
@@ -2034,6 +1991,7 @@ app.get(
                     a.matchPercentage
             );
 
+
             // ==================================================
             // RETURN RESULTS
             // ==================================================
@@ -2044,14 +2002,61 @@ app.get(
 
         } catch (error) {
 
-            console.log(
+            // Only log genuine server errors.
+            console.error(
                 "Job matching error:",
-                error
+                error.message
             );
 
             res.status(500).json({
                 message:
                     "Failed to calculate job matches"
+            });
+        }
+    }
+);
+// ==================================================
+// GET CANDIDATE PROFILE FOR RECRUITER
+// ==================================================
+
+app.get(
+    "/api/recruiter/candidates/:candidateId",
+    protect,
+    async (req, res) => {
+        try {
+            if (req.user.role !== "recruiter") {
+                return res.status(403).json({
+                    message: "Recruiter access required"
+                });
+            }
+
+            const candidate = await User.findById(
+                req.params.candidateId
+            ).select("-password");
+
+            if (!candidate) {
+                return res.status(404).json({
+                    message: "Candidate not found"
+                });
+            }
+
+            if (candidate.role !== "candidate") {
+                return res.status(400).json({
+                    message: "User is not a candidate"
+                });
+            }
+
+            res.json(candidate);
+
+        } catch (error) {
+            console.log(
+                "Fetch candidate profile error:",
+                error
+            );
+
+            res.status(500).json({
+                message:
+                    "Failed to fetch candidate profile"
             });
         }
     }

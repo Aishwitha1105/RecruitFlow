@@ -82,7 +82,7 @@ async function handleApply() {
     return (
         <main className="job-details">
 
-            <Link to="/dashboard" className="back-link">
+            <Link to="/candidate/dashboard" className="back-link">
                 ← Back to Jobs
             </Link>
 

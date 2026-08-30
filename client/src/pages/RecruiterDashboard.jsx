@@ -1,21 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import JobPosts from "../components/JobPosts";
 
 function RecruiterDashboard() {
-
     const [jobposts, setJobposts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [message, setMessage] = useState("");
 
     useEffect(() => {
-
         async function fetchJobs() {
-
             try {
-
                 const response = await fetch("/api/jobs", {
                     headers: {
-                        "Authorization":
-                            `Bearer ${localStorage.getItem("token")}`
+                        Authorization: `Bearer ${localStorage.getItem("token")}`
                     }
                 });
 
@@ -23,24 +19,48 @@ function RecruiterDashboard() {
 
                 console.log("Recruiter jobs:", data);
 
+                if (!response.ok) {
+                    throw new Error(
+                        data.message || "Failed to fetch jobs"
+                    );
+                }
+
                 setJobposts(data);
 
             } catch (error) {
-
-                console.log(
-                    "Error fetching jobs:",
-                    error
-                );
-
+                console.log("Error fetching jobs:", error);
+                setMessage("Unable to load your job postings.");
+            } finally {
+                setLoading(false);
             }
         }
 
         fetchJobs();
-
     }, []);
 
-    return (
+    if (loading) {
+        return (
+            <main className="recruiter-page">
+                <section className="recruiter-dashboard">
+                    <div>
+                        <span className="recruiter-eyebrow">
+                            RECRUITER
+                        </span>
 
+                        <h1>
+                            Manage your hiring.
+                        </h1>
+
+                        <p>
+                            Loading your job postings...
+                        </p>
+                    </div>
+                </section>
+            </main>
+        );
+    }
+
+    return (
         <main className="recruiter-page">
 
             {/* HEADER */}
@@ -48,7 +68,6 @@ function RecruiterDashboard() {
             <section className="recruiter-dashboard">
 
                 <div>
-
                     <span className="recruiter-eyebrow">
                         RECRUITER
                     </span>
@@ -58,9 +77,9 @@ function RecruiterDashboard() {
                     </h1>
 
                     <p>
-                        Manage your job postings and find qualified candidates.
+                        Manage your job postings and find qualified
+                        candidates.
                     </p>
-
                 </div>
 
                 <Link
@@ -71,6 +90,15 @@ function RecruiterDashboard() {
                 </Link>
 
             </section>
+
+
+            {/* ERROR MESSAGE */}
+
+            {message && (
+                <div className="dashboard-message">
+                    {message}
+                </div>
+            )}
 
 
             {/* JOB POSTS */}
@@ -90,14 +118,18 @@ function RecruiterDashboard() {
                         </h2>
 
                         <p>
-                            Manage your active opportunities and applicants.
+                            Manage your active opportunities and
+                            applicants.
                         </p>
 
                     </div>
 
                     <div className="job-count">
                         {jobposts.length}
-                        <span>Jobs</span>
+
+                        <span>
+                            Jobs
+                        </span>
                     </div>
 
                 </div>
@@ -112,7 +144,8 @@ function RecruiterDashboard() {
                         </h3>
 
                         <p>
-                            Create your first job posting to start finding candidates.
+                            Create your first job posting to start
+                            finding candidates.
                         </p>
 
                         <Link
@@ -135,10 +168,14 @@ function RecruiterDashboard() {
                                 key={job._id}
                             >
 
+                                {/* CARD HEADER */}
+
                                 <div className="job-card-header">
 
                                     <div className="company-icon">
-                                        {job.company?.charAt(0)}
+                                        {job.company
+                                            ?.charAt(0)
+                                            ?.toUpperCase() || "C"}
                                     </div>
 
                                     <span
@@ -154,6 +191,8 @@ function RecruiterDashboard() {
                                 </div>
 
 
+                                {/* JOB TITLE */}
+
                                 <h3>
                                     {job.title}
                                 </h3>
@@ -163,22 +202,26 @@ function RecruiterDashboard() {
                                 </p>
 
 
+                                {/* JOB INFORMATION */}
+
                                 <div className="recruiter-job-info">
 
                                     <span>
-                                        📍 {job.location}
+                                        📍 {job.location || "Not specified"}
                                     </span>
 
                                     <span>
-                                        💼 {job.jobType}
+                                        💼 {job.jobType || "Not specified"}
                                     </span>
 
                                     <span>
-                                        🎓 {job.experience}
+                                        🎓 {job.experience || "Not specified"}
                                     </span>
 
                                 </div>
 
+
+                                {/* APPLICANTS */}
 
                                 <div className="applicant-box">
 
@@ -201,13 +244,22 @@ function RecruiterDashboard() {
                                 </div>
 
 
+                                {/* ACTIONS */}
+
                                 <div className="job-card-actions">
 
                                     <Link
-                                        to={`/jobs/${job._id}`}
+                                        to={`/recruiter/jobs/${job._id}`}
                                         className="view-job-button"
                                     >
                                         View Job
+                                    </Link>
+
+                                    <Link
+                                        to={`/recruiter/jobs/${job._id}/edit`}
+                                        className="edit-job-button"
+                                    >
+                                        Edit Job
                                     </Link>
 
                                     <Link
